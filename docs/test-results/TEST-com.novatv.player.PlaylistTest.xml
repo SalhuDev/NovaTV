@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.novatv.player.PlaylistTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-10-10T08:13:10" hostname="dbe33152897b" time="0.049">
+  <properties/>
+  <testcase name="handlesHttpAndExtgrpWithoutLeakingPreviousMetadata" classname="com.novatv.player.PlaylistTest" time="0.026"/>
+  <testcase name="metadataCommasBomAndRelativeStreams" classname="com.novatv.player.PlaylistTest" time="0.001"/>
+  <testcase name="ignoresCommentsRejectsUnsafeSchemesAndDeduplicates" classname="com.novatv.player.PlaylistTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

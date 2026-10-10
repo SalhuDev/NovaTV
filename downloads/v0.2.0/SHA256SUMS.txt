@@ -1,0 +1,2 @@
+2cde72c756850928c761d5cf03ee4ba4b8ca32a29835c51ceb788e879b66bcb8  NOVA_TV_v0.2_debug.apk
+4c9a4d676285d6309cced7c0d78013a8a5d752cb7ebebe4c0c50685d048de60e  NOVA_TV_v0.2_source.zip

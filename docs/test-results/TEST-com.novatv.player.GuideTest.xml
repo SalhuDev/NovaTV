@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.novatv.player.GuideTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-10-10T08:13:10" hostname="dbe33152897b" time="0.081">
+  <properties/>
+  <testcase name="offsetsProduceSameInstant" classname="com.novatv.player.GuideTest" time="0.057"/>
+  <testcase name="readsTitleAndRejectsInvalidIntervals" classname="com.novatv.player.GuideTest" time="0.023"/>
+  <testcase name="rejectsEntities" classname="com.novatv.player.GuideTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
