@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.novatv.player.trakt.TraktTest" tests="10" skipped="0" failures="0" errors="0" timestamp="2026-10-10T09:13:36" hostname="dbe33152897b" time="0.503">
+  <properties/>
+  <testcase name="deviceFlowHonorsPendingAndSlowdown" classname="com.novatv.player.trakt.TraktTest" time="0.399"/>
+  <testcase name="noStopBeforePlaybackOrBelowOnePercent" classname="com.novatv.player.trakt.TraktTest" time="0.0"/>
+  <testcase name="watchlistPaginationAndEpisodeHistoryPayload" classname="com.novatv.player.trakt.TraktTest" time="0.017"/>
+  <testcase name="scrobblingRequiresOptInAndStopsAfterDisconnect" classname="com.novatv.player.trakt.TraktTest" time="0.046"/>
+  <testcase name="scrobbleTracksTransitionsNotBuffering" classname="com.novatv.player.trakt.TraktTest" time="0.002"/>
+  <testcase name="revokedRefreshClearsLogin" classname="com.novatv.player.trakt.TraktTest" time="0.006"/>
+  <testcase name="canceledDeviceLoginDoesNotKeepPolling" classname="com.novatv.player.trakt.TraktTest" time="0.009"/>
+  <testcase name="missingOrInvalidTraktIdsAreNotMatched" classname="com.novatv.player.trakt.TraktTest" time="0.0"/>
+  <testcase name="refreshIsSerializedAndRotatedTokensPersistBeforeUse" classname="com.novatv.player.trakt.TraktTest" time="0.019"/>
+  <testcase name="expiredDeviceCodeDoesNotPollAgain" classname="com.novatv.player.trakt.TraktTest" time="0.004"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

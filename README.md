@@ -1,4 +1,13 @@
-# NOVA TV — Android TV v0.2
+# NOVA TV — Android TV v0.3
+
+## Nieuw: Trakt.tv
+
+Aanmelden met een tv-code, kijklijst, recente kijkgeschiedenis, titel- en afleveringkoppeling en optionele automatische kijkregistratie. Het originele logo en paarse ontwerp blijven behouden. Een eigen publieke Trakt Client ID is nodig: [instellen en gebruik](docs/TRAKT.md).
+
+- [Debug-APK v0.3.0](https://github.com/SalhuDev/NovaTV/raw/refs/heads/main/downloads/v0.3.0/NOVA_TV_v0.3_debug.apk)
+- [Bronpakket v0.3.0](https://github.com/SalhuDev/NovaTV/raw/refs/heads/main/downloads/v0.3.0/NOVA_TV_v0.3_source.zip)
+- [Buildrapport v0.3.0](docs/BUILD-REPORT-v0.3.md)
+
 
 ## Download v0.2.0
 

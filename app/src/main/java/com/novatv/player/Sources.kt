@@ -61,7 +61,7 @@ object Sources {
   val seasons = JSONObject(read(account.api("get_series_info", "&series_id=${encode(series.id)}"))).optJSONObject("episodes") ?: return emptyList()
   return seasons.keys().asSequence().toList().sortedBy { it.toIntOrNull() ?: 0 }.flatMap { season ->
    val items = seasons.getJSONArray(season)
-   (0 until items.length()).map { i -> val item = items.getJSONObject(i); Channel(item.optString("title", "Aflevering ${i + 1}"), account.stream("series", item.getString("id"), item.optString("container_extension", "mp4")), "${series.name} · seizoen $season", kind = "series") }
+   (0 until items.length()).map { i -> val item = items.getJSONObject(i); Channel(item.optString("title", "Aflevering ${i + 1}"), account.stream("series", item.getString("id"), item.optString("container_extension", "mp4")), "${series.name} · seizoen $season", kind = "series", showTitle = series.name, season = item.optInt("season", season.toIntOrNull() ?: -1).takeIf { it >= 0 }, episode = item.optInt("episode_num", -1).takeIf { it > 0 }) }
   }
  }
 }

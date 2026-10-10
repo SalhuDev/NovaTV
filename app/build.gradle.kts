@@ -1,6 +1,6 @@
 plugins { id("com.android.application"); id("org.jetbrains.kotlin.android"); id("org.jetbrains.kotlin.plugin.compose") }
 android { namespace = "com.novatv.player"; compileSdk = 35
- defaultConfig { applicationId = "com.novatv.player"; minSdk = 26; targetSdk = 35; versionCode = 2; versionName = "0.2.0" }
+ defaultConfig { applicationId = "com.novatv.player"; minSdk = 26; targetSdk = 35; versionCode = 3; versionName = "0.3.0" }
  buildFeatures { compose = true }
  compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
  kotlinOptions { jvmTarget = "17" }
@@ -21,5 +21,7 @@ dependencies {
  implementation("androidx.media3:media3-ui:1.5.1")
  debugImplementation("androidx.compose.ui:ui-tooling")
  testImplementation("junit:junit:4.13.2")
+ testImplementation("org.json:json:20240303")
+ testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
  testImplementation("net.sf.kxml:kxml2:2.3.0")
 }

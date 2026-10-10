@@ -20,7 +20,7 @@ import androidx.media3.ui.PlayerView
 
 @androidx.annotation.OptIn(UnstableApi::class)
 @Composable
-fun Playback(channel: Channel, modifier: Modifier = Modifier, report: (String) -> Unit) {
+fun Playback(channel: Channel, modifier: Modifier = Modifier, trakt: (String, Double) -> Unit = { _, _ -> }, report: (String) -> Unit) {
  val context = LocalContext.current
  val lifecycle = LocalLifecycleOwner.current.lifecycle
  val latestReport by rememberUpdatedState(report)
@@ -39,9 +39,16 @@ fun Playback(channel: Channel, modifier: Modifier = Modifier, report: (String) -
  }
  DisposableEffect(player, lifecycle) {
   var resume = false
+  val scrobble = com.novatv.player.trakt.ScrobbleSession()
+  fun track(ended: Boolean = false) {
+   if (channel.kind != "live") scrobble.update(player.currentPosition, player.duration, player.isPlaying, !player.playWhenReady, ended)?.let { trakt(it.first, it.second) }
+  }
   val listener = object : Player.Listener {
+   override fun onIsPlayingChanged(isPlaying: Boolean) { track() }
+   override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) { track() }
    override fun onPlayerError(error: PlaybackException) { latestReport("Afspelen mislukt (${error.errorCodeName}). Controleer de bron en probeer opnieuw.") }
    override fun onPlaybackStateChanged(state: Int) {
+    track(state == Player.STATE_ENDED)
     latestReport(when (state) { Player.STATE_BUFFERING -> "Bufferen…"; Player.STATE_READY -> ""; Player.STATE_ENDED -> "Afspelen voltooid"; else -> "" })
    }
   }
@@ -53,7 +60,11 @@ fun Playback(channel: Channel, modifier: Modifier = Modifier, report: (String) -
    }
   }
   player.addListener(listener); lifecycle.addObserver(observer)
-  onDispose { lifecycle.removeObserver(observer); player.removeListener(listener); player.release() }
+  onDispose {
+   scrobble.stop(player.currentPosition, player.duration)?.let { if (channel.kind != "live") trakt(it.first, it.second) }
+   trakt("dispose", 0.0)
+   lifecycle.removeObserver(observer); player.removeListener(listener); player.release()
+  }
  }
  AndroidView(factory = { PlayerView(it).apply { this.player = player; useController = true; setShowSubtitleButton(true); setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING); requestFocus() } }, update = { it.player = player }, modifier = modifier)
 }

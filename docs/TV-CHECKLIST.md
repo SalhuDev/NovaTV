@@ -18,3 +18,16 @@ Voer deze controles uit op een Android TV/Google TV-apparaat met Android 8 of ni
 
 Hardwaretests en tests met een echte IPTV-provider zijn niet uitgevoerd in de buildomgeving.
 Media3 onderhandelt audioformaten met Android. Atmos, TrueHD en passthrough zijn geen garantie voor ieder apparaat. Er is geen directe Sonos-castfunctie.
+
+## Trakt v0.3
+
+- [ ] Eigen publieke Client ID en geregistreerde redirect-URI invoeren; code op telefoon goedkeuren.
+- [ ] Aanmelden annuleren, code laten verlopen en toestemming weigeren.
+- [ ] Film met gelijknamige alternatieven zoeken en juiste jaar bevestigen.
+- [ ] Serie, seizoen (ook specials) en aflevering bevestigen.
+- [ ] Kijklijst toevoegen/verwijderen en handmatig bekeken controleren op trakt.tv.
+- [ ] Automatische registratie uit: geen wijziging; aan: start/pauze/hervatten/stop controleren.
+- [ ] Buffering, Terug, app naar achtergrond en einde film controleren.
+- [ ] Live TV registreren uitsluiten; snelle zenderwisselingen opnieuw controleren.
+- [ ] App herstarten, tokenvernieuwing en ontkoppelen controleren.
+- [ ] Grote kijklijst met afstandsbediening doorlopen; netwerkuitval toont foutmelding.

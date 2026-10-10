@@ -4,7 +4,8 @@ import java.net.URI
 
 data class Channel(
  val name: String, val url: String, val group: String = "Overig",
- val epgId: String = "", val logo: String = "", val kind: String = "live"
+ val epgId: String = "", val logo: String = "", val kind: String = "live",
+ val showTitle: String = "", val season: Int? = null, val episode: Int? = null
 ) { val key: String get() = "$kind:$url" }
 
 object Playlist {

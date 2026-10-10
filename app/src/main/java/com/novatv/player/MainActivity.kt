@@ -47,7 +47,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun RemoteButton(text: String, modifier: Modifier = Modifier, active: Boolean = false, enabled: Boolean = true, action: () -> Unit) {
+internal fun RemoteButton(text: String, modifier: Modifier = Modifier, active: Boolean = false, enabled: Boolean = true, action: () -> Unit) {
  var focused by remember { mutableStateOf(false) }
  TvButton(onClick = action, enabled = enabled,
   modifier = modifier.onFocusChanged { focused = it.isFocused }.border(if (focused) 3.dp else 0.dp, if (focused) white else Color.Transparent, RoundedCornerShape(12.dp)),
@@ -58,6 +58,8 @@ private fun RemoteButton(text: String, modifier: Modifier = Modifier, active: Bo
 @Composable fun NovaApp() {
  val context = LocalContext.current
  val storage = remember { Storage(context) }
+ val trakt = remember { TraktSession.get(context) }
+ var traktChannel by remember { mutableStateOf<Channel?>(null) }
  val restored = remember { runCatching { storage.load() }.getOrDefault(JSONObject()) }
  var tab by rememberSaveable { mutableStateOf("Home") }
  var playlistUrl by remember { mutableStateOf(restored.optString("playlist")) }
@@ -80,14 +82,14 @@ private fun RemoteButton(text: String, modifier: Modifier = Modifier, active: Bo
  var loading by remember { mutableStateOf(false) }
  var favoriteItems by remember { mutableStateOf(buildList {
   val array = restored.optJSONArray("favoriteItems") ?: JSONArray()
-  for (i in 0 until array.length()) { val item = array.getJSONObject(i); add(Channel(item.getString("name"), item.getString("url"), item.optString("group"), item.optString("epgId"), item.optString("logo"), item.optString("kind", "live"))) }
+  for (i in 0 until array.length()) { val item = array.getJSONObject(i); add(Channel(item.getString("name"), item.getString("url"), item.optString("group"), item.optString("epgId"), item.optString("logo"), item.optString("kind", "live"), item.optString("showTitle"), item.optInt("season", -1).takeIf { it >= 0 }, item.optInt("episode", -1).takeIf { it > 0 })) }
  }) }
  val favorites = favoriteItems.map { it.key }.toSet()
  val scope = rememberCoroutineScope()
  val menuFocus = remember { FocusRequester() }
  val contentFocus = remember { FocusRequester() }
  var restoreContent by remember { mutableStateOf(false) }
- fun persist() { storage.save(JSONObject().put("playlist", playlistUrl).put("epg", epgUrl).put("server", server).put("username", username).put("password", password).put("favoriteItems", JSONArray(favoriteItems.map { item -> JSONObject().put("name", item.name).put("url", item.url).put("group", item.group).put("epgId", item.epgId).put("logo", item.logo).put("kind", item.kind) }))) }
+ fun persist() { storage.save(JSONObject().put("playlist", playlistUrl).put("epg", epgUrl).put("server", server).put("username", username).put("password", password).put("favoriteItems", JSONArray(favoriteItems.map { item -> JSONObject().put("name", item.name).put("url", item.url).put("group", item.group).put("epgId", item.epgId).put("logo", item.logo).put("kind", item.kind).put("showTitle", item.showTitle).put("season", item.season).put("episode", item.episode) }))) }
  fun task(block: suspend () -> Unit) {
   if (loading) return
   loading = true
@@ -112,12 +114,13 @@ private fun RemoteButton(text: String, modifier: Modifier = Modifier, active: Bo
   if (restoreContent && selected == null) { runCatching { contentFocus.requestFocus() }.onFailure { menuFocus.requestFocus() }; restoreContent = false }
  }
  MaterialTheme(colorScheme = darkColorScheme(primary = purple, surface = panel, background = bg, onBackground = white, onSurface = white)) {
+  traktChannel?.let { TraktMatchDialog(it, trakt) { traktChannel = null } }
   Row(Modifier.fillMaxSize().background(bg).padding(24.dp)) {
    Column(Modifier.width(200.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
     val bitmap = remember { context.assets.open("nova_mascot.png").use { BitmapFactory.decodeStream(it) } }
     Image(bitmap.asImageBitmap(), "Origineel NOVA-logo", Modifier.size(86.dp))
     Text("NOVA TV", fontSize = 29.sp, fontWeight = FontWeight.Bold, color = white)
-    listOf("Home", "Live TV", "EPG", "Films", "Series", "Favorieten", "Bronnen", "Instellingen").forEachIndexed { i, item ->
+    listOf("Home", "Live TV", "EPG", "Films", "Series", "Favorieten", "Trakt", "Bronnen", "Instellingen").forEachIndexed { i, item ->
      RemoteButton(item, Modifier.fillMaxWidth().then(if (i == 0) Modifier.focusRequester(menuFocus) else Modifier), tab == item) { tab = item; selected = null; openedSeries = null }
     }
    }
@@ -134,7 +137,10 @@ private fun RemoteButton(text: String, modifier: Modifier = Modifier, active: Bo
        Key.ChannelDown, Key.PageDown -> { switch(-1); true }
        else -> false
       } else false
-     }) { Playback(playing, Modifier.fillMaxSize()) { playbackStatus = it } }
+     }) { key(if (playing.kind == "live") "live-player" else playing.key) {
+      val tracking = remember { if (playing.kind != "live") trakt.playback(playing.key) else { _: String, _: Double -> } }
+      Playback(playing, Modifier.fillMaxSize(), tracking) { playbackStatus = it }
+     } }
      Text(playbackStatus, color = white)
      Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
       if (playing.kind == "live") { RemoteButton("Vorige") { switch(-1) }; RemoteButton("Volgende") { switch(1) } }
@@ -142,6 +148,7 @@ private fun RemoteButton(text: String, modifier: Modifier = Modifier, active: Bo
       RemoteButton("Terug") { selected = null; restoreContent = true }
      }
     } else when (tab) {
+     "Trakt" -> TraktScreen(trakt)
      "Home" -> {
       Text("Welkom bij NOVA TV", fontSize = 26.sp, color = white)
       Text("Jouw entertainment. Jouw scherm.", color = Color.LightGray)
@@ -169,10 +176,10 @@ private fun RemoteButton(text: String, modifier: Modifier = Modifier, active: Bo
      }
      "Live TV", "Films", "Favorieten" -> {
       val entries = when (tab) { "Films" -> films; "Favorieten" -> favoriteItems; else -> channels }
-      ChannelList(entries, favorites, contentFocus, returnKey, { returnKey = it.key; selected = it }, { item -> favoriteItems = if (item.key in favorites) favoriteItems.filterNot { it.key == item.key } else favoriteItems + item; runCatching { persist() }.onFailure { status = "Favorieten konden niet worden opgeslagen." } })
+      ChannelList(entries, favorites, contentFocus, returnKey, { traktChannel = it }, { returnKey = it.key; selected = it }, { item -> favoriteItems = if (item.key in favorites) favoriteItems.filterNot { it.key == item.key } else favoriteItems + item; runCatching { persist() }.onFailure { status = "Favorieten konden niet worden opgeslagen." } })
      }
      "Series" -> {
-      if (openedSeries != null) ChannelList(episodes, favorites, contentFocus, returnKey, { returnKey = it.key; selected = it }, { item -> favoriteItems = if (item.key in favorites) favoriteItems.filterNot { it.key == item.key } else favoriteItems + item; runCatching { persist() } })
+      if (openedSeries != null) ChannelList(episodes, favorites, contentFocus, returnKey, { traktChannel = it }, { returnKey = it.key; selected = it }, { item -> favoriteItems = if (item.key in favorites) favoriteItems.filterNot { it.key == item.key } else favoriteItems + item; runCatching { persist() } })
       else if (series.isEmpty()) Text("Verbind een Xtream-bron om series te laden.", color = white)
       else LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
        items(series, key = { it.id }) { item -> RemoteButton(item.name, Modifier.fillMaxWidth(), enabled = !loading) {
@@ -195,7 +202,7 @@ private fun RemoteButton(text: String, modifier: Modifier = Modifier, active: Bo
  }
 }
 
-@Composable private fun ChannelList(entries: List<Channel>, favorites: Set<String>, focus: FocusRequester, returnKey: String, play: (Channel) -> Unit, favorite: (Channel) -> Unit) {
+@Composable private fun ChannelList(entries: List<Channel>, favorites: Set<String>, focus: FocusRequester, returnKey: String, trakt: (Channel) -> Unit, play: (Channel) -> Unit, favorite: (Channel) -> Unit) {
  if (entries.isEmpty()) { Text("Geen items. Laad een bron of voeg favorieten toe.", color = white); return }
  val returnIndex = entries.indexOfFirst { it.key == returnKey }.coerceAtLeast(0)
  val state = androidx.compose.foundation.lazy.rememberLazyListState(initialFirstVisibleItemIndex = returnIndex)
@@ -204,6 +211,7 @@ private fun RemoteButton(text: String, modifier: Modifier = Modifier, active: Bo
    val item = entries[index]
    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
     RemoteButton("${item.name} · ${item.group}", Modifier.weight(1f).then(if (index == returnIndex) Modifier.focusRequester(focus) else Modifier)) { play(item) }
+    if (item.kind != "live") RemoteButton("Trakt") { trakt(item) }
     RemoteButton(if (item.key in favorites) "★ Verwijder" else "☆ Bewaar") { favorite(item) }
    }
   }
