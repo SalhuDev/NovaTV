@@ -1,4 +1,13 @@
-# NOVA TV — Android TV v0.3
+# NOVA TV — Android TV v0.4
+
+## Nieuw: bediening en bibliotheek
+
+Volledig scherm afspelen, verbeterd focusherstel, zoeken en groepsfilters, posters, vaste EPG-zenderkolom en Trakt-aanmelden met QR-code. [UI/UX-wijzigingen en resterende hardwarecontroles](docs/UI-UX-v0.4.md).
+
+- [Debug-APK v0.4.0](https://github.com/SalhuDev/NovaTV/raw/refs/heads/main/downloads/v0.4.0/NOVA_TV_v0.4_debug.apk)
+- [Bronpakket v0.4.0](https://github.com/SalhuDev/NovaTV/raw/refs/heads/main/downloads/v0.4.0/NOVA_TV_v0.4_source.zip)
+- [Buildrapport v0.4.0](docs/BUILD-REPORT-v0.4.md)
+
 
 ## Nieuw: Trakt.tv
 

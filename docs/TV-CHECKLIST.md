@@ -31,3 +31,14 @@ Media3 onderhandelt audioformaten met Android. Atmos, TrueHD en passthrough zijn
 - [ ] Live TV registreren uitsluiten; snelle zenderwisselingen opnieuw controleren.
 - [ ] App herstarten, tokenvernieuwing en ontkoppelen controleren.
 - [ ] Grote kijklijst met afstandsbediening doorlopen; netwerkuitval toont foutmelding.
+
+## UI/UX v0.4
+
+- [ ] Film/serie zoeken, groep kiezen, afspelen en terugkeren: filters, scroll en focus controleren.
+- [ ] Volledig scherm: OK/D-pad toont bediening; Terug verbergt bediening, daarna sluit Terug de speler.
+- [ ] Playerfout: focus op Opnieuw proberen, daarna herstel of Terug naar bibliotheek.
+- [ ] EPG: zendernamen blijven staan; tijdkop en rijen scrollen samen; zender opent leesbare programmalijst.
+- [ ] Korte programma's en lange titels via programmalijst lezen.
+- [ ] Trakt QR-code scannen, code invoeren, vernieuwen met herhaald OK en na netwerkuitval.
+- [ ] Instellingen en lange kijkgeschiedenis volledig doorlopen met uitsluitend D-pad.
+- [ ] Posterfouten, lege filters en grote lijsten controleren op 1080p/4K.

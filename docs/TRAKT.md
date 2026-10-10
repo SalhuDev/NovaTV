@@ -4,7 +4,7 @@
 
 1. Registreer een eigen Trakt API-app via https://developer.trakt.tv/apps.
 2. Registreer als redirect-URI `https://github.com/SalhuDev/NovaTV` (of vul je eigen geregistreerde HTTPS-URI in NOVA TV in).
-3. Open **Trakt** in NOVA TV, vul de publieke **Client ID** en dezelfde redirect-URI in, en kies **Opslaan en aanmelden**. Er is geen Client Secret nodig; neem die nooit op in de Android-app.
+3. Open **Trakt** in NOVA TV (vanaf v0.4: kies **Geavanceerd: Trakt-app instellen**), vul de publieke **Client ID** en dezelfde redirect-URI in, en kies **Aanmelden bij Trakt** (v0.3: **Opslaan en aanmelden**). Er is geen Client Secret nodig; neem die nooit op in de Android-app.
 4. Open het getoonde Trakt-adres op je telefoon, voer de code in en geef toestemming. NOVA TV wacht automatisch op goedkeuring.
 5. Open een film of aflevering in de bibliotheek en kies **Trakt** naast de titel. Zoek en bevestig de juiste titel en het jaar. Voor series: vul seizoen en aflevering in, kies de serie en bevestig daarna de gevonden aflevering.
 
