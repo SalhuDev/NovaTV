@@ -12,6 +12,7 @@ class TraktRepository(private val transport: TraktTransport, initial: JSONObject
  private val persist: (JSONObject) -> Unit, private val scope: CoroutineScope,
  private val now: () -> Long = System::currentTimeMillis) {
  private val mutex = Mutex()
+ private val actionMutex = Mutex()
  private var tokens = initial.optJSONObject("tokens")?.let { runCatching { TraktTokens.restore(it) }.getOrNull() }
  private val mutable = MutableStateFlow(TraktUiState(clientId = initial.optString("clientId"),
   redirectUri = initial.optString("redirectUri", "https://github.com/SalhuDev/NovaTV"), connected = tokens != null,
@@ -35,8 +36,11 @@ class TraktRepository(private val transport: TraktTransport, initial: JSONObject
   update { it.copy(clientId = id.trim(), redirectUri = redirect.trim()) }; save()
  }
  fun runTask(block: suspend () -> Unit) { scope.launch {
+  if (!actionMutex.tryLock()) return@launch
+  update { it.copy(actionBusy = true) }
   try { block() } catch (e: CancellationException) { throw e }
   catch (e: Exception) { update { it.copy(status = if (e is TraktFailure || e is IllegalArgumentException) e.message.orEmpty() else "Trakt niet bereikbaar of opslaan mislukt. Probeer opnieuw.") } }
+  finally { update { it.copy(actionBusy = false) }; actionMutex.unlock() }
  } }
  fun connect() {
   if (login?.isActive == true || state.value.connected) return

@@ -46,7 +46,7 @@ data class DevicePrompt(val code: String, val verificationUrl: String, val expir
 data class TraktUiState(
  val clientId: String = "", val redirectUri: String = "https://github.com/SalhuDev/NovaTV",
  val connected: Boolean = false, val username: String = "", val autoScrobble: Boolean = false,
- val busy: Boolean = false, val prompt: DevicePrompt? = null, val status: String = "Koppel je Trakt-account om je kijklijst en kijkgeschiedenis te gebruiken.",
+ val actionBusy: Boolean = false, val busy: Boolean = false, val prompt: DevicePrompt? = null, val status: String = "Koppel je Trakt-account om je kijklijst en kijkgeschiedenis te gebruiken.",
  val watchlist: List<TraktMedia> = emptyList(), val history: List<TraktMedia> = emptyList(),
  val links: Map<String, TraktMedia> = emptyMap()
 )

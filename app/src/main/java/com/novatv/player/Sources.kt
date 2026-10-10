@@ -43,7 +43,7 @@ object Sources {
   fun stream(kind: String, id: String, extension: String): String = "$base/$kind/${encode(username)}/${encode(password)}/${encode(id)}.${encode(extension)}"
  }
  data class Catalog(val live: List<Channel>, val films: List<Channel>, val series: List<Series>)
- data class Series(val id: String, val name: String)
+ data class Series(val id: String, val name: String, val cover: String = "", val group: String = "Overig")
  fun catalog(account: Xtream): Catalog {
   val info = JSONObject(read(account.api()))
   require(info.optJSONObject("user_info")?.optInt("auth") == 1) { "Aanmelden bij provider mislukt" }
@@ -55,7 +55,7 @@ object Sources {
    }
   }
   val series = JSONArray(read(account.api("get_series")))
-  return Catalog(streams("get_live_streams", "live"), streams("get_vod_streams", "movie"), (0 until series.length()).map { i -> val s = series.getJSONObject(i); Series(s.getString("series_id"), s.optString("name")) })
+  return Catalog(streams("get_live_streams", "live"), streams("get_vod_streams", "movie"), (0 until series.length()).map { i -> val s = series.getJSONObject(i); Series(s.getString("series_id"), s.optString("name"), s.optString("cover"), s.optString("category_id", "Overig")) })
  }
  fun episodes(account: Xtream, series: Series): List<Channel> {
   val seasons = JSONObject(read(account.api("get_series_info", "&series_id=${encode(series.id)}"))).optJSONObject("episodes") ?: return emptyList()

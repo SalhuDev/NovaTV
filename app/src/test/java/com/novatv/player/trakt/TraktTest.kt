@@ -109,6 +109,28 @@ class TraktTest {
   repo.connect(); runCurrent(); repo.cancelLogin(); advanceTimeBy(60000); runCurrent()
   assertEquals(0, polls); assertNull(repo.state.value.prompt); assertFalse(repo.state.value.busy)
  }
+ @Test fun repeatedUiActionsAreIgnoredWhileRequestRuns() = runTest {
+  val repo = TraktRepository(Fake { _, _, _ -> response() }, initial(), {}, backgroundScope, { 0L })
+  var requests = 0
+  repo.runTask { requests++; delay(1000) }
+  runCurrent()
+  assertTrue(repo.state.value.actionBusy)
+  repo.runTask { requests++ }; runCurrent()
+  assertEquals(1, requests)
+  advanceTimeBy(1001); runCurrent()
+  assertFalse(repo.state.value.actionBusy)
+  repo.runTask { requests++ }; runCurrent()
+  assertEquals(2, requests)
+ }
+ @Test fun failedUiActionAllowsRetryAndShowsSafeMessage() = runTest {
+  val repo = TraktRepository(Fake { _, _, _ -> response() }, initial(), {}, backgroundScope, { 0L })
+  repo.runTask { throw java.io.IOException("private server details") }; runCurrent()
+  assertFalse(repo.state.value.actionBusy)
+  assertFalse(repo.state.value.status.contains("private server details"))
+  var retried = false
+  repo.runTask { retried = true }; runCurrent()
+  assertTrue(retried)
+ }
  @Test fun missingOrInvalidTraktIdsAreNotMatched() {
   assertTrue(TraktMedia.list("""[{"type":"movie","movie":{"title":"No ID"}}]""").isEmpty())
  }

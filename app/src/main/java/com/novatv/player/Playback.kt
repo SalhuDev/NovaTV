@@ -1,6 +1,16 @@
 package com.novatv.player
 
 import androidx.compose.runtime.*
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.Text
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
@@ -20,7 +30,13 @@ import androidx.media3.ui.PlayerView
 
 @androidx.annotation.OptIn(UnstableApi::class)
 @Composable
-fun Playback(channel: Channel, modifier: Modifier = Modifier, trakt: (String, Double) -> Unit = { _, _ -> }, report: (String) -> Unit) {
+fun Playback(channel: Channel, modifier: Modifier = Modifier, trakt: (String, Double) -> Unit = { _, _ -> }, close: () -> Unit = {}, report: (String) -> Unit) {
+ val retryFocus = remember { FocusRequester() }
+ var controlsVisible by remember { mutableStateOf(true) }
+ var view by remember { mutableStateOf<PlayerView?>(null) }
+ var errorText by remember { mutableStateOf("") }
+ LaunchedEffect(errorText) { if (errorText.isNotBlank()) retryFocus.requestFocus() }
+ BackHandler { if (controlsVisible && errorText.isBlank()) view?.hideController() else close() }
  val context = LocalContext.current
  val lifecycle = LocalLifecycleOwner.current.lifecycle
  val latestReport by rememberUpdatedState(report)
@@ -34,6 +50,7 @@ fun Playback(channel: Channel, modifier: Modifier = Modifier, trakt: (String, Do
    }
  }
  LaunchedEffect(channel.url) {
+  errorText = ""
   latestReport("Laden…")
   player.setMediaItem(MediaItem.fromUri(channel.url)); player.prepare(); player.playWhenReady = true
  }
@@ -46,7 +63,7 @@ fun Playback(channel: Channel, modifier: Modifier = Modifier, trakt: (String, Do
   val listener = object : Player.Listener {
    override fun onIsPlayingChanged(isPlaying: Boolean) { track() }
    override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) { track() }
-   override fun onPlayerError(error: PlaybackException) { latestReport("Afspelen mislukt (${error.errorCodeName}). Controleer de bron en probeer opnieuw.") }
+   override fun onPlayerError(error: PlaybackException) { errorText = "Afspelen lukt niet. Controleer je verbinding of probeer opnieuw."; latestReport("Afspelen mislukt (${error.errorCodeName}). Controleer de bron en probeer opnieuw.") }
    override fun onPlaybackStateChanged(state: Int) {
     track(state == Player.STATE_ENDED)
     latestReport(when (state) { Player.STATE_BUFFERING -> "Bufferen…"; Player.STATE_READY -> ""; Player.STATE_ENDED -> "Afspelen voltooid"; else -> "" })
@@ -66,5 +83,13 @@ fun Playback(channel: Channel, modifier: Modifier = Modifier, trakt: (String, Do
    lifecycle.removeObserver(observer); player.removeListener(listener); player.release()
   }
  }
- AndroidView(factory = { PlayerView(it).apply { this.player = player; useController = true; setShowSubtitleButton(true); setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING); requestFocus() } }, update = { it.player = player }, modifier = modifier)
+ Box(modifier) {
+ AndroidView(factory = { PlayerView(it).apply { view = this; setControllerVisibilityListener(PlayerView.ControllerVisibilityListener { controlsVisible = it == android.view.View.VISIBLE }); this.player = player; useController = true; setShowSubtitleButton(true); setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING); requestFocus() } }, update = { it.player = player }, modifier = Modifier.fillMaxSize())
+ if (controlsVisible && errorText.isBlank()) Text(channel.name, Modifier.align(Alignment.TopStart).padding(32.dp).background(Color.Black.copy(alpha = 0.7f)).padding(12.dp), color = Color.White, fontSize = 24.sp)
+ if (errorText.isNotBlank()) Column(Modifier.align(Alignment.Center).background(Color(0xFF110E21)).padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+  Text(errorText, color = Color.White)
+  RemoteButton("Opnieuw proberen", Modifier.focusRequester(retryFocus)) { errorText = ""; player.prepare(); player.play() }
+  RemoteButton("Terug naar bibliotheek") { close() }
+ }
+ }
 }

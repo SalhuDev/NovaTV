@@ -23,7 +23,7 @@ class TraktHttp : TraktTransport {
   connection.setRequestProperty("Accept", "application/json")
   connection.setRequestProperty("trakt-api-version", "2")
   connection.setRequestProperty("trakt-api-key", clientId)
-  connection.setRequestProperty("User-Agent", "NOVA-TV/0.3.0")
+  connection.setRequestProperty("User-Agent", "NOVA-TV/0.4.0")
   if (token != null) connection.setRequestProperty("Authorization", "Bearer $token")
   try {
    if (body != null) { connection.doOutput = true; connection.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) } }

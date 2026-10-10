@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -52,11 +53,13 @@ internal fun RemoteButton(text: String, modifier: Modifier = Modifier, active: B
  TvButton(onClick = action, enabled = enabled,
   modifier = modifier.onFocusChanged { focused = it.isFocused }.border(if (focused) 3.dp else 0.dp, if (focused) white else Color.Transparent, RoundedCornerShape(12.dp)),
   colors = TvButtonDefaults.colors(containerColor = if (active) purple else panel, contentColor = white, focusedContainerColor = purple, focusedContentColor = white)
- ) { Text(text, color = white, maxLines = 2, overflow = TextOverflow.Ellipsis) }
+ ) { Text((if (active) "▸ " else "") + text, color = if (!enabled) Color(0xFFB6AEC6) else if (focused || active) bg else white, maxLines = 2, overflow = TextOverflow.Ellipsis) }
 }
 
 @Composable fun NovaApp() {
  val context = LocalContext.current
+ val screenState = rememberSaveableStateHolder()
+ var seriesReturnId by rememberSaveable { mutableStateOf("") }
  val storage = remember { Storage(context) }
  val trakt = remember { TraktSession.get(context) }
  var traktChannel by remember { mutableStateOf<Channel?>(null) }
@@ -106,16 +109,33 @@ internal fun RemoteButton(text: String, modifier: Modifier = Modifier, active: B
   val index = channels.indexOfFirst { it.key == current.key }
   selected = channels[(index + delta + channels.size) % channels.size]
  }
- BackHandler(enabled = selected != null || openedSeries != null || tab != "Home") {
+ BackHandler(enabled = selected == null && (openedSeries != null || tab != "Home")) {
   when { selected != null -> { selected = null; restoreContent = true }; openedSeries != null -> { openedSeries = null; episodes = emptyList(); restoreContent = true }; else -> { tab = "Home"; menuFocus.requestFocus() } }
  }
  LaunchedEffect(Unit) { menuFocus.requestFocus() }
  LaunchedEffect(restoreContent, selected, tab) {
   if (restoreContent && selected == null) { runCatching { contentFocus.requestFocus() }.onFailure { menuFocus.requestFocus() }; restoreContent = false }
  }
- MaterialTheme(colorScheme = darkColorScheme(primary = purple, surface = panel, background = bg, onBackground = white, onSurface = white)) {
+ MaterialTheme(colorScheme = darkColorScheme(primary = purple, onPrimary = bg, surface = panel, background = bg, onBackground = white, onSurface = white), typography = Typography(bodyLarge = androidx.compose.ui.text.TextStyle(fontSize = 18.sp, lineHeight = 26.sp), bodyMedium = androidx.compose.ui.text.TextStyle(fontSize = 18.sp, lineHeight = 26.sp))) {
   traktChannel?.let { TraktMatchDialog(it, trakt) { traktChannel = null } }
-  Row(Modifier.fillMaxSize().background(bg).padding(24.dp)) {
+  val playing = selected
+  if (playing != null) {
+   Box(Modifier.fillMaxSize().background(Color.Black).onPreviewKeyEvent {
+    if (it.type == KeyEventType.KeyDown && playing.kind == "live") when (it.key) {
+     Key.ChannelUp, Key.PageUp -> { switch(1); true }
+     Key.ChannelDown, Key.PageDown -> { switch(-1); true }
+     else -> false
+    } else false
+   }) {
+    key(if (playing.kind == "live") "live-player" else playing.key) {
+     val tracking = remember { if (playing.kind != "live") trakt.playback(playing.key) else { _: String, _: Double -> } }
+     Playback(playing, Modifier.fillMaxSize(), tracking, { selected = null; restoreContent = true }) { playbackStatus = it }
+    }
+   }
+   return@MaterialTheme
+  }
+
+  Row(Modifier.fillMaxSize().background(bg).padding(32.dp)) {
    Column(Modifier.width(200.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
     val bitmap = remember { context.assets.open("nova_mascot.png").use { BitmapFactory.decodeStream(it) } }
     Image(bitmap.asImageBitmap(), "Origineel NOVA-logo", Modifier.size(86.dp))
@@ -128,26 +148,8 @@ internal fun RemoteButton(text: String, modifier: Modifier = Modifier, active: B
    Column(Modifier.weight(1f).fillMaxHeight()) {
     Text(tab, fontSize = 34.sp, color = white, fontWeight = FontWeight.Bold)
     Spacer(Modifier.height(12.dp))
-    val playing = selected
-    if (playing != null) {
-     Text(playing.name, color = white, fontSize = 22.sp)
-     Box(Modifier.fillMaxWidth().weight(1f).onPreviewKeyEvent {
-      if (it.type == KeyEventType.KeyDown && playing.kind == "live") when (it.key) {
-       Key.ChannelUp, Key.PageUp -> { switch(1); true }
-       Key.ChannelDown, Key.PageDown -> { switch(-1); true }
-       else -> false
-      } else false
-     }) { key(if (playing.kind == "live") "live-player" else playing.key) {
-      val tracking = remember { if (playing.kind != "live") trakt.playback(playing.key) else { _: String, _: Double -> } }
-      Playback(playing, Modifier.fillMaxSize(), tracking) { playbackStatus = it }
-     } }
-     Text(playbackStatus, color = white)
-     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-      if (playing.kind == "live") { RemoteButton("Vorige") { switch(-1) }; RemoteButton("Volgende") { switch(1) } }
-      RemoteButton("Opnieuw") { val c = selected; selected = null; scope.launch { delay(50); selected = c } }
-      RemoteButton("Terug") { selected = null; restoreContent = true }
-     }
-    } else when (tab) {
+    screenState.SaveableStateProvider(tab) {
+    when (tab) {
      "Trakt" -> TraktScreen(trakt)
      "Home" -> {
       Text("Welkom bij NOVA TV", fontSize = 26.sp, color = white)
@@ -175,27 +177,31 @@ internal fun RemoteButton(text: String, modifier: Modifier = Modifier, active: B
       Text(if (loading) "Laden…" else status, color = white)
      }
      "Live TV", "Films", "Favorieten" -> {
+      if (status.contains("opgeslagen")) Text(status, color = white)
       val entries = when (tab) { "Films" -> films; "Favorieten" -> favoriteItems; else -> channels }
       ChannelList(entries, favorites, contentFocus, returnKey, { traktChannel = it }, { returnKey = it.key; selected = it }, { item -> favoriteItems = if (item.key in favorites) favoriteItems.filterNot { it.key == item.key } else favoriteItems + item; runCatching { persist() }.onFailure { status = "Favorieten konden niet worden opgeslagen." } })
      }
      "Series" -> {
+      if (status.contains("mislukt", true)) ReadingText(status)
+      if (loading) { LinearProgressIndicator(Modifier.fillMaxWidth()); Text("Afleveringen laden…", color = white) }
+      if (openedSeries != null) RemoteButton("← Alle series") { openedSeries = null; episodes = emptyList(); restoreContent = true }
+      screenState.SaveableStateProvider("series:${openedSeries?.id ?: "catalog"}") {
       if (openedSeries != null) ChannelList(episodes, favorites, contentFocus, returnKey, { traktChannel = it }, { returnKey = it.key; selected = it }, { item -> favoriteItems = if (item.key in favorites) favoriteItems.filterNot { it.key == item.key } else favoriteItems + item; runCatching { persist() } })
-      else if (series.isEmpty()) Text("Verbind een Xtream-bron om series te laden.", color = white)
-      else LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-       items(series, key = { it.id }) { item -> RemoteButton(item.name, Modifier.fillMaxWidth(), enabled = !loading) {
-        val provider = account
-        if (provider != null) task { val loaded = withContext(Dispatchers.IO) { Sources.episodes(provider, item) }; episodes = loaded; openedSeries = item; restoreContent = true }
-       } }
+      else SeriesLibrary(series, contentFocus, seriesReturnId, loading) { item ->
+       val provider = account
+       if (provider != null) task { val loaded = withContext(Dispatchers.IO) { Sources.episodes(provider, item) }; episodes = loaded; seriesReturnId = item.id; openedSeries = item; restoreContent = true }
       }
-      Text(if (loading) "Afleveringen laden…" else status, color = Color.LightGray)
+      }
+
      }
-     "EPG" -> GuideTimeline(channels, programmes) { selected = it }
+     "EPG" -> GuideTimeline(channels, programmes, contentFocus) { selected = it }
      "Instellingen" -> Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-      Text("AndroidX Media3 · automatische audioformaatselectie", color = white)
-      Text("Passthrough en Dolby Atmos worden door Media3 gekozen als bron, Android-apparaat en HDMI/eARC-keten het formaat ondersteunen. Er wordt geen surroundformaat geforceerd.", color = Color.LightGray)
-      Text("Sonos: sluit een geschikte Sonos-soundbar aan via HDMI ARC/eARC. Dolby Digital Plus/Atmos en TrueHD hangen af van TV, speler en soundbar. Direct casten naar Sonos is niet ingebouwd.", color = Color.LightGray)
-      Text("Gebruik de spelerbediening voor afspelen/pauze, audio en ondertitels. CH+/CH− of Page Up/Down wisselt live-zenders. Terug sluit de speler.", color = white)
+      ReadingText("AndroidX Media3 · automatische audioformaatselectie")
+      ReadingText("Passthrough en Dolby Atmos worden door Media3 gekozen als bron, Android-apparaat en HDMI/eARC-keten het formaat ondersteunen. Er wordt geen surroundformaat geforceerd.")
+      ReadingText("Sonos: sluit een geschikte Sonos-soundbar aan via HDMI ARC/eARC. Dolby Digital Plus/Atmos en TrueHD hangen af van TV, speler en soundbar. Direct casten naar Sonos is niet ingebouwd.")
+      ReadingText("Gebruik de spelerbediening voor afspelen/pauze, audio en ondertitels. CH+/CH− of Page Up/Down wisselt live-zenders. Terug verbergt eerst de spelerbediening en sluit daarna de speler.")
      }
+    }
     }
    }
   }
@@ -203,57 +209,68 @@ internal fun RemoteButton(text: String, modifier: Modifier = Modifier, active: B
 }
 
 @Composable private fun ChannelList(entries: List<Channel>, favorites: Set<String>, focus: FocusRequester, returnKey: String, trakt: (Channel) -> Unit, play: (Channel) -> Unit, favorite: (Channel) -> Unit) {
- if (entries.isEmpty()) { Text("Geen items. Laad een bron of voeg favorieten toe.", color = white); return }
- val returnIndex = entries.indexOfFirst { it.key == returnKey }.coerceAtLeast(0)
- val state = androidx.compose.foundation.lazy.rememberLazyListState(initialFirstVisibleItemIndex = returnIndex)
- LazyColumn(state = state, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-  items(entries.size, key = { entries[it].key }) { index ->
-   val item = entries[index]
-   Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-    RemoteButton("${item.name} · ${item.group}", Modifier.weight(1f).then(if (index == returnIndex) Modifier.focusRequester(focus) else Modifier)) { play(item) }
-    if (item.kind != "live") RemoteButton("Trakt") { trakt(item) }
-    RemoteButton(if (item.key in favorites) "★ Verwijder" else "☆ Bewaar") { favorite(item) }
-   }
-  }
- }
+ MediaLibrary(entries, favorites, focus, returnKey, trakt, play, favorite)
 }
 
-@Composable private fun GuideTimeline(channels: List<Channel>, programmes: List<Programme>, play: (Channel) -> Unit) {
+@Composable private fun GuideTimeline(channels: List<Channel>, programmes: List<Programme>, focus: FocusRequester, play: (Channel) -> Unit) {
  var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
  LaunchedEffect(Unit) { while (true) { delay(60000); now = System.currentTimeMillis() } }
- var windowOffset by remember { mutableIntStateOf(0) }
+ var windowOffset by rememberSaveable { mutableIntStateOf(0) }
  val start = now / 1800000 * 1800000 + windowOffset * 3600000L
  val end = start + 3 * 3600000
  val time = remember { DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault()) }
  if (channels.isEmpty() || programmes.isEmpty()) { Text("Laad zenders en een XMLTV-bron onder Bronnen. Zenders worden gekoppeld via tvg-id.", color = white); return }
  val byChannel = remember(programmes) { programmes.groupBy { it.channelId } }
  val scroll = rememberScrollState()
+ var focusedProgramme by rememberSaveable { mutableStateOf("") }
+ var detail by remember { mutableStateOf<Programme?>(null) }
+ var schedule by remember { mutableStateOf<Channel?>(null) }
+ schedule?.let { channel ->
+  androidx.compose.ui.window.Dialog(onDismissRequest = { schedule = null }) {
+   Surface(shape = RoundedCornerShape(16.dp)) {
+    Column(Modifier.padding(24.dp).heightIn(max = 420.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+     Text(channel.name, fontSize = 24.sp)
+     RemoteButton("Live kijken") { schedule = null; play(channel) }
+     LazyColumn(Modifier.weight(1f, fill = false), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+      items(byChannel[channel.epgId].orEmpty().filter { it.end > start && it.start < end }) { programme ->
+       ReadingText("${time.format(Instant.ofEpochMilli(programme.start))} – ${time.format(Instant.ofEpochMilli(programme.end))} · ${programme.title}")
+      }
+     }
+     RemoteButton("Sluiten") { schedule = null }
+    }
+   }
+  }
+ }
  Column {
   Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-   RemoteButton("← Eerder") { windowOffset -= 3 }
-   RemoteButton("Nu") { windowOffset = 0 }
-   RemoteButton("Later →") { windowOffset += 3 }
+   RemoteButton("← Eerder") { windowOffset -= 3; focusedProgramme = "" }
+   RemoteButton("Nu", if (focusedProgramme.isBlank()) Modifier.focusRequester(focus) else Modifier) { windowOffset = 0; focusedProgramme = "" }
+   RemoteButton("Later →") { windowOffset += 3; focusedProgramme = "" }
   }
   Spacer(Modifier.height(12.dp))
-  Column(Modifier.horizontalScroll(scroll)) {
-  Row(Modifier.padding(start = 200.dp)) { repeat(6) { Text(time.format(Instant.ofEpochMilli(start + it * 1800000)), Modifier.width(180.dp), color = purple) } }
-  LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.width(1280.dp)) {
+  detail?.let { Text("${time.format(Instant.ofEpochMilli(it.start))} – ${time.format(Instant.ofEpochMilli(it.end))} · ${it.title}", color = white, modifier = Modifier.padding(vertical = 8.dp)) }
+  Row {
+   Spacer(Modifier.width(200.dp))
+   Row(Modifier.horizontalScroll(scroll)) { repeat(6) { Text(time.format(Instant.ofEpochMilli(start + it * 1800000)), Modifier.width(180.dp), color = purple) } }
+  }
+  LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
    items(channels, key = { it.key }) { channel ->
     Row(verticalAlignment = Alignment.CenterVertically) {
-     RemoteButton(channel.name, Modifier.width(200.dp)) { play(channel) }
+     RemoteButton(channel.name, Modifier.width(200.dp)) { schedule = channel }
+     Box(Modifier.weight(1f).horizontalScroll(scroll)) {
      Box(Modifier.width(1080.dp).height(70.dp)) {
       val entries = byChannel[channel.epgId].orEmpty().filter { it.end > start && it.start < end }
       if (entries.isEmpty()) Text("Geen gidsgegevens", Modifier.padding(8.dp), color = Color.LightGray)
       entries.forEach { programme ->
        val offset = ((programme.start.coerceAtLeast(start) - start) / 10000f).dp
        val width = ((programme.end.coerceAtMost(end) - programme.start.coerceAtLeast(start)) / 10000f).dp
-       RemoteButton("${time.format(Instant.ofEpochMilli(programme.start))} ${programme.title}", Modifier.offset(x = offset).width(width).fillMaxHeight().padding(2.dp), active = now in programme.start until programme.end) { play(channel) }
+       RemoteButton("${time.format(Instant.ofEpochMilli(programme.start))} ${programme.title}", Modifier.then(if (focusedProgramme == "${channel.key}:${programme.start}") Modifier.focusRequester(focus) else Modifier).offset(x = offset).width(width).fillMaxHeight().padding(1.dp).onFocusChanged { if (it.isFocused) { detail = programme; focusedProgramme = "${channel.key}:${programme.start}" } }, active = now in programme.start until programme.end) { play(channel) }
       }
       if (now in start until end) Box(Modifier.offset { IntOffset(((now - start) / 10000f).dp.roundToPx(), 0) }.width(2.dp).fillMaxHeight().background(purple))
+     }
      }
     }
    }
   }
- }
 }
 }

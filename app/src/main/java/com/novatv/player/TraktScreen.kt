@@ -1,6 +1,8 @@
 package com.novatv.player
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -24,19 +26,29 @@ object TraktSession {
 
 @Composable fun TraktScreen(repository: TraktRepository) {
  val state by repository.state.collectAsState()
+ var advanced by remember { mutableStateOf(false) }
  var id by remember(state.clientId) { mutableStateOf(state.clientId) }
  var redirect by remember(state.redirectUri) { mutableStateOf(state.redirectUri) }
  LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
   item { Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
   Text(state.status)
+  if (state.actionBusy) { LinearProgressIndicator(Modifier.fillMaxWidth()); Text("Trakt bijwerken…") }
   if (!state.connected) {
+   Text("Koppel je account om je kijklijst en kijkgeschiedenis te gebruiken.")
+   RemoteButton(if (advanced) "Geavanceerde instellingen sluiten" else "Geavanceerd: Trakt-app instellen", enabled = !state.busy && !state.actionBusy) { advanced = !advanced }
+   if (advanced) {
    Text("Registreer een app via developer.trakt.tv/apps. Gebruik de publieke Client ID; er is geen Client Secret nodig.")
    OutlinedTextField(id, { id = it }, label = { Text("Trakt Client ID") }, singleLine = true, enabled = !state.busy, modifier = Modifier.fillMaxWidth())
    OutlinedTextField(redirect, { redirect = it }, label = { Text("Geregistreerde redirect-URI") }, singleLine = true, enabled = !state.busy, modifier = Modifier.fillMaxWidth())
-   RemoteButton("Opslaan en aanmelden", enabled = !state.busy && id.isNotBlank()) {
+   }
+   if (id.isBlank()) Text("Eenmalige configuratie nodig. Open Geavanceerd en vul je publieke Client ID in.")
+   RemoteButton("Aanmelden bij Trakt", enabled = !state.busy && !state.actionBusy && id.isNotBlank()) {
+    advanced = false
     repository.runTask { repository.configure(id, redirect); repository.connect() }
    }
    state.prompt?.let { prompt ->
+    Text("Scan met je telefoon en voer de code in:")
+    TraktQr(prompt.verificationUrl)
     Text(prompt.verificationUrl, style = MaterialTheme.typography.headlineSmall)
     Text(prompt.code, style = MaterialTheme.typography.displaySmall)
     var remaining by remember(prompt) { mutableLongStateOf(0) }
@@ -46,10 +58,10 @@ object TraktSession {
    if (state.busy) RemoteButton("Aanmelden annuleren") { repository.cancelLogin() }
   } else {
    Text("Gekoppeld: ${state.username.ifBlank { "Trakt-account" }}")
-   RemoteButton("Kijklijst en geschiedenis vernieuwen") { repository.runTask { repository.refresh() } }
+   RemoteButton("Kijklijst en geschiedenis vernieuwen", enabled = !state.actionBusy) { repository.runTask { repository.refresh() } }
    RemoteButton("Automatische kijkregistratie: ${if (state.autoScrobble) "aan" else "uit"}") { repository.runTask { repository.autoScrobble(!state.autoScrobble) } }
    Text("Koppel een film of aflevering via de Trakt-knop in je bibliotheek. Alleen bevestigde titels geven voortgang door. Live TV wordt niet geregistreerd.")
-   RemoteButton("Account ontkoppelen") { repository.runTask { repository.disconnect() } }
+   RemoteButton("Account ontkoppelen", enabled = !state.actionBusy) { repository.runTask { repository.disconnect() } }
   }
   } }
   if (state.connected) {
@@ -58,11 +70,11 @@ object TraktSession {
    items(state.watchlist, key = { "watchlist:${it.key}" }) { media ->
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
      Text(media.label)
-     RemoteButton("Verwijder uit kijklijst") { repository.runTask { repository.watchlist(media, true) } }
+     RemoteButton("Verwijder uit kijklijst", enabled = !state.actionBusy) { repository.runTask { repository.watchlist(media, true) } }
     }
    }
    item { Text("Recente kijkgeschiedenis (laatste 100 registraties)", style = MaterialTheme.typography.headlineSmall) }
-   items(state.history, key = { "history:${it.key}" }) { Text(it.label) }
+   items(state.history, key = { "history:${it.key}" }) { ReadingText(it.label) }
    item { Text("Trakt levert geen videostreams. Je films en series komen uit je eigen bronnen.") }
   }
  }
@@ -120,4 +132,14 @@ object TraktSession {
    }
   }
  }
+}
+
+@Composable private fun TraktQr(url: String) {
+ val bitmap = remember(url) {
+  val matrix = com.google.zxing.qrcode.QRCodeWriter().encode(url, com.google.zxing.BarcodeFormat.QR_CODE, 256, 256)
+  android.graphics.Bitmap.createBitmap(256, 256, android.graphics.Bitmap.Config.ARGB_8888).apply {
+   for (y in 0 until 256) for (x in 0 until 256) setPixel(x, y, if (matrix[x, y]) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
+  }.asImageBitmap()
+ }
+ Image(bitmap, "QR-code voor Trakt-aanmelden; het adres staat ook als tekst op dit scherm", Modifier.size(144.dp))
 }
